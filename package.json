@@ -1,0 +1,12 @@
+{
+  "name": "dutch-auction",
+  "private": true,
+  "scripts": {
+    "install:all": "npm --prefix apps/api install && npm --prefix apps/web install",
+    "db:init": "npm --prefix apps/api run db:init",
+    "seed": "npm --prefix apps/api run seed --",
+    "dev:api": "npm --prefix apps/api run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "test:race": "npm --prefix apps/api run test:race --"
+  }
+}
