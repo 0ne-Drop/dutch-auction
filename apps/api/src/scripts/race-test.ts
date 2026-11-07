@@ -3,6 +3,8 @@
  * API 서버가 떠 있고, 오늘의 경매가 진행 중이어야 한다.
  *   npm run test:race -- 50
  */
+export {};
+
 const BASE = process.env.API_BASE ?? 'http://localhost:4000/api';
 const N = Number(process.argv[2] ?? 50);
 

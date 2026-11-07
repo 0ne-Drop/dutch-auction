@@ -6,10 +6,9 @@ export const config = {
   cookieSecure: process.env.COOKIE_SECURE === 'true',
 };
 
-/** 경매 규칙: 애플리케이션 상수 (DB에 저장하지 않음) */
+/** 가격 공식의 공통 정책. 회차의 주기와 기간은 DB 값을 사용한다. */
 export const AUCTION_RULE = {
-  durationSec: 5 * 60,      // 5분 진행
-  dropRatePerSec: 0.005,    // 1초마다 현재가의 0.5% 인하 (복리)
+  dropRatePerStep: 0.005,   // DB에 저장된 인하 주기마다 0.5% 인하 (복리)
   priceUnit: 10,            // 10원 단위 내림
 };
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, categoryLabel, type Item, type TodayResponse } from "@/lib/api";
-import { hms, openLabel, priceAt, won } from "@/lib/price";
+import { durationLabel, hms, openLabel, priceAt, won } from "@/lib/price";
 import { useAuctionEvents, useMe, useServerNow } from "@/lib/hooks";
 import { MenuDrawer } from "@/components/MenuDrawer";
 import { ItemImage } from "@/components/ItemImage";
@@ -96,7 +96,7 @@ export function HomeClient() {
             <section className="mx-4 mt-4 flex flex-col gap-2 rounded-xl border border-line bg-panel p-5">
               <p className="text-xs font-medium text-sub">오늘의 경매 브랜드</p>
               <p className="text-2xl font-bold">{auction.brandName}</p>
-              <p className="text-[13px] text-sub">{openLabel(auction.startsAt)} 오픈 · 5분 진행</p>
+              <p className="text-[13px] text-sub">{openLabel(auction.startsAt)} 오픈 · {durationLabel(auction.startsAt, auction.endsAt)} 진행</p>
             </section>
 
             <div
@@ -156,7 +156,7 @@ function TimerLabel({ label, value }: { label: string; value: string }) {
 
 function ItemCard({ item, now }: { item: Item; now: number | null }) {
   const startsAt = new Date(item.startsAt).getTime();
-  const current = now === null ? item.startPrice : priceAt(item.startPrice, item.minPrice, startsAt, now);
+  const current = now === null ? item.startPrice : priceAt(item.startPrice, item.minPrice, startsAt, Math.min(now, Date.parse(item.endsAt)), item.priceDropIntervalSec);
   const closed = item.status !== "listed";
 
   return (

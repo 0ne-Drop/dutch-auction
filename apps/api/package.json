@@ -9,6 +9,7 @@
     "db:init": "tsx src/scripts/init-db.ts",
     "seed": "tsx src/scripts/seed.ts",
     "test:race": "tsx src/scripts/race-test.ts",
+    "test:price": "tsx --test src/scripts/price-test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

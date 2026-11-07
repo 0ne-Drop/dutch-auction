@@ -1,11 +1,23 @@
 /** 서버(apps/api/src/price.ts)와 같은 공식. 화면 표시용이며, 낙찰가는 서버가 다시 계산한다. */
-export const AUCTION_RULE = { durationSec: 300, dropRatePerSec: 0.005, priceUnit: 10 };
+export const AUCTION_RULE = { dropRatePerStep: 0.005, priceUnit: 10 };
 
-export function priceAt(startPrice: number, minPrice: number, startsAtMs: number, nowMs: number) {
-  const elapsedSec = Math.floor((nowMs - startsAtMs) / 1000);
-  if (elapsedSec <= 0) return startPrice;
-  const raw = startPrice * Math.pow(1 - AUCTION_RULE.dropRatePerSec, elapsedSec);
+export function priceAt(startPrice: number, minPrice: number, startsAtMs: number, nowMs: number, priceDropIntervalSec: number) {
+  if (!Number.isInteger(priceDropIntervalSec) || priceDropIntervalSec <= 0) {
+    throw new RangeError('priceDropIntervalSec must be a positive integer');
+  }
+  const steps = Math.floor((nowMs - startsAtMs) / (priceDropIntervalSec * 1000));
+  if (steps <= 0) return startPrice;
+  const raw = startPrice * Math.pow(1 - AUCTION_RULE.dropRatePerStep, steps);
   return Math.max(minPrice, Math.floor(raw / AUCTION_RULE.priceUnit) * AUCTION_RULE.priceUnit);
+}
+
+/** DB의 시작·종료 시각 차이를 표시한다. */
+export function durationLabel(startsAt: string, endsAt: string) {
+  const seconds = (Date.parse(endsAt) - Date.parse(startsAt)) / 1000;
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const rest = Number((seconds % 60).toFixed(3));
+  return [hours && `${hours}시간`, minutes && `${minutes}분`, rest && `${rest}초`].filter(Boolean).join(" ");
 }
 
 export const won = (n: number) => `${n.toLocaleString("ko-KR")}원`;

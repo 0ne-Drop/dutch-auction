@@ -8,11 +8,14 @@
 import { v7 as uuidv7 } from 'uuid';
 import { db, pool } from '../db.js';
 import { hashPassword } from '../auth.js';
-import { auctionEndsAt } from '../price.js';
 import { redis } from '../redis.js';
 
 const argIdx = process.argv.indexOf('--start-in');
 const startInSec = argIdx > -1 ? Number(process.argv[argIdx + 1]) : 60;
+
+// 데모 생성 시에만 사용하는 기본값. 실행 시 가격과 기간은 저장된 DB 값을 참조한다.
+const SEED_DEFAULTS = { durationSec: 300, priceDropIntervalSec: 1 };
+const auctionEndsAt = (start: Date) => new Date(start.getTime() + SEED_DEFAULTS.durationSec * 1000);
 
 const seoulDate = (d: Date) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(d); // YYYY-MM-DD
@@ -61,7 +64,7 @@ await db
     auction_date: seoulDate(startsAt),
     starts_at: startsAt,
     ends_at: auctionEndsAt(startsAt),
-    price_drop_interval_sec: 1,
+    price_drop_interval_sec: SEED_DEFAULTS.priceDropIntervalSec,
   })
   .execute();
 
@@ -93,7 +96,7 @@ for (let i = 1; i < BRANDS.length; i++) {
       auction_date: date,
       starts_at: s,
       ends_at: auctionEndsAt(s),
-      price_drop_interval_sec: 1,
+      price_drop_interval_sec: SEED_DEFAULTS.priceDropIntervalSec,
     })
     .execute();
 }
