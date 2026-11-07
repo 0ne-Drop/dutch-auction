@@ -21,6 +21,7 @@ function itemQuery() {
       'i.item_id as id', 'i.name', 'i.image_url as imageUrl', 'i.category',
       'i.start_price as startPrice', 'i.min_price as minPrice', 'i.status',
       'a.auction_id as auctionId', 'a.starts_at as startsAt', 'a.ends_at as endsAt',
+      'a.price_drop_interval_sec as priceDropIntervalSec',
       'b.name as brandName',
       'w.winning_price as winningPrice', 'w.won_at as wonAt', 'w.winner_user_id as winnerUserId',
     ]);
@@ -37,7 +38,7 @@ export async function auctionRoutes(app: FastifyInstance) {
       .selectFrom('auction as a')
       .innerJoin('brand as b', 'b.brand_id', 'a.brand_id')
       .select(['a.auction_id as id', 'a.auction_date as auctionDate', 'a.starts_at as startsAt',
-        'a.ends_at as endsAt', 'b.name as brandName'])
+        'a.ends_at as endsAt', 'a.price_drop_interval_sec as priceDropIntervalSec', 'b.name as brandName'])
       .where('a.auction_date', '=', todaySeoul())
       .executeTakeFirst();
     if (!auction) return { auction: null, items: [] };
@@ -98,7 +99,7 @@ export async function auctionRoutes(app: FastifyInstance) {
     const acquired = await redis.set(lockKey, userId, 'PX', 10_000, 'NX');
     if (!acquired) return reply.code(409).send({ error: 'ALREADY_SOLD', message: '다른 사용자가 먼저 낙찰받았습니다.' });
 
-    const price = priceAt(item.startPrice, item.minPrice, item.startsAt, now);
+    const price = priceAt(item.startPrice, item.minPrice, item.startsAt, now, item.priceDropIntervalSec);
     try {
       const result = await sql<{ item_id: string }>`
         WITH sold AS (

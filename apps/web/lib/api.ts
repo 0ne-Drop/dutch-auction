@@ -27,6 +27,7 @@ export interface AuctionSummary {
   auctionDate: string;
   startsAt: string;
   endsAt: string;
+  priceDropIntervalSec: number;
   brandName: string;
 }
 
@@ -41,6 +42,7 @@ export interface Item {
   auctionId: string;
   startsAt: string;
   endsAt: string;
+  priceDropIntervalSec: number;
   brandName: string;
   winningPrice: number | null;
   wonAt: string | null;

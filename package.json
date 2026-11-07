@@ -7,6 +7,7 @@
     "seed": "npm --prefix apps/api run seed --",
     "dev:api": "npm --prefix apps/api run dev",
     "dev:web": "npm --prefix apps/web run dev",
-    "test:race": "npm --prefix apps/api run test:race --"
+    "test:race": "npm --prefix apps/api run test:race --",
+    "test:price": "npm --prefix apps/api run test:price"
   }
 }

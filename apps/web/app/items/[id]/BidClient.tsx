@@ -65,7 +65,7 @@ export function BidClient() {
   const endsAt = new Date(item.endsAt).getTime();
   const t = now ?? startsAt - 1;
   const phase = t < startsAt ? "before" : t < endsAt ? "live" : "ended";
-  const current = priceAt(item.startPrice, item.minPrice, startsAt, t);
+  const current = priceAt(item.startPrice, item.minPrice, startsAt, Math.min(t, endsAt), item.priceDropIntervalSec);
   const shownPrice = item.status === "sold" && item.winningPrice !== null ? item.winningPrice : current;
   const dropRatio = (item.startPrice - shownPrice) / (item.startPrice - item.minPrice);
   const canBid = item.status === "listed" && phase === "live" && now !== null && !pending;
