@@ -1,0 +1,45 @@
+# 로컬에서 3티어 구성을 한 번에 실행 (운영 대응 관계)
+#   web   (nginx)        ↔ S3 + CloudFront
+#   api   (Spring Boot)  ↔ ALB + EKS
+#   db    (PostgreSQL)   ↔ RDS PostgreSQL
+#   redis (Redis)        ↔ ElastiCache Redis
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dutch_auction
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dutch_auction"]
+      interval: 2s
+      retries: 30
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/dutch_auction
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      REDIS_URL: redis://redis:6379
+      # 데모: 시작할 때마다 데이터를 초기화하고 60초 뒤 시작하는 오늘의 경매를 만든다
+      SEED_ENABLED: "true"
+      SEED_START_IN: "60"
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+    ports: ["8080:8080"]
+
+  web:
+    build: ./frontend
+    depends_on: [api]
+    ports: ["3000:80"]
+
+volumes:
+  pgdata:

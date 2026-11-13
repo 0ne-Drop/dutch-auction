@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --color-ink: #222222;
+  --color-sub: #555555;
+  --color-mute: #666666;
+  --color-line: #d6d6d6;
+  --color-line-soft: #ececec;
+  --color-field: #c4c4c4;
+  --color-panel: #f4f4f4;
+  --color-ph: #e9e9e9;
+  --color-danger: #b42318;
+}
+
+html,
+body {
+  background: #ececec;
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

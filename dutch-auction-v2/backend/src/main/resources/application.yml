@@ -1,0 +1,46 @@
+server:
+  port: ${API_PORT:8080}
+  shutdown: graceful          # 종료 신호를 받으면 처리 중인 요청을 마무리한 뒤 내려감 (EKS 무중단 배포)
+
+spring:
+  application:
+    name: dutch-auction-api
+  threads:
+    virtual:
+      enabled: true           # Java 21 가상 스레드: 오픈 순간 동시 요청·SSE 연결 처리
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/dutch_auction}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+  flyway:
+    enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  mvc:
+    async:
+      request-timeout: 30m    # SSE 연결 최대 유지 시간 (끊기면 브라우저가 자동 재연결)
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis   # DB·Redis가 준비된 Pod만 트래픽을 받음
+
+app:
+  cookie-secure: ${COOKIE_SECURE:false}
+  session-ttl-days: 7
+  seed:
+    enabled: ${SEED_ENABLED:false}         # true면 시작할 때 데모 데이터 생성 (기존 데이터 삭제)
+    start-in-sec: ${SEED_START_IN:60}

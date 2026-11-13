@@ -1,0 +1,44 @@
+node_modules/
+dist/
+build/
+.gradle/
+.idea/
+*.iml
+.env*
+*.log
+.DS_Store
+
+# Local project documentation
+/docs/
+
+# Local cloud, container, and Kubernetes credentials
+.aws/
+.docker/
+.kube/
+
+# Private keys and certificate stores
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa
+id_ecdsa
+id_ed25519
+
+# Database backups and container image archives
+*.dump
+*.backup
+*.tar
+*.tar.gz
+
+# Local infrastructure state and variable values
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+
+# Allow sanitized environment templates
+!.env.example
+!.env.sample
