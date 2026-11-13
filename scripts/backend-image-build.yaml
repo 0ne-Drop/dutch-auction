@@ -1,0 +1,9 @@
+# Build: docker compose -f scripts/backend-image-build.yaml build backend
+# Paths are relative to this YAML file.
+services:
+  backend:
+    image: "${BACKEND_IMAGE_NAME:-dutch-auction-backend}:${BACKEND_IMAGE_TAG:-local}"
+    platform: "${BACKEND_IMAGE_PLATFORM:-linux/amd64}"
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
