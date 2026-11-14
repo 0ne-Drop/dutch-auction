@@ -42,15 +42,15 @@ jobs:
       run:
         working-directory: frontend
     steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+
     - name: Check settings
       run: |
         if [ -z "$S3_BUCKET" ]; then
           echo "::error::저장소 변수 S3_BUCKET이 설정되지 않았습니다."
           exit 1
         fi
-
-    - name: Checkout
-      uses: actions/checkout@v5
 
     - name: Setup Node
       uses: actions/setup-node@v5
