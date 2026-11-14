@@ -1,0 +1,98 @@
+# 프론트엔드(frontend/) 정적 빌드를 S3에 배포한다. 운영 구조: S3 + CloudFront (/api/* 는 CloudFront → ALB)
+#
+# 필요한 설정 (Settings → Secrets and variables → Actions)
+#   Secrets
+#     CICD_AWS_ACCESS              AWS Access Key ID
+#     CICD_AWS_SECRET_ACCESS       AWS Secret Access Key
+#   Variables
+#     S3_BUCKET                    (필수) 배포할 버킷 이름. 예: dutch-auction-web
+#     AWS_REGION                   (선택) 기본 ap-northeast-2
+#     CLOUDFRONT_DISTRIBUTION_ID   (선택) 값이 있으면 배포 후 캐시를 무효화한다
+name: Deploy frontend to S3
+
+on:
+  push:
+    branches:
+    - master
+    paths:
+    - 'frontend/**'
+    - 'shared/**'                  # 화면 가격 계산 테스트 기준값
+    - '.github/workflows/deploy_frontend_s3.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 배포가 겹치지 않게 한 번에 하나만 실행 (진행 중인 배포는 취소하지 않음)
+concurrency:
+  group: deploy-frontend-s3
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+  S3_BUCKET: ${{ vars.S3_BUCKET }}
+  CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+    - name: Check settings
+      run: |
+        if [ -z "$S3_BUCKET" ]; then
+          echo "::error::저장소 변수 S3_BUCKET이 설정되지 않았습니다."
+          exit 1
+        fi
+
+    - name: Checkout
+      uses: actions/checkout@v5
+
+    - name: Setup Node
+      uses: actions/setup-node@v5
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      run: npm ci --no-audit --no-fund
+
+    - name: Test
+      run: npm test
+
+    # frontend/Dockerfile과 같은 방식으로 빌드 (결과: frontend/dist)
+    - name: Build
+      run: npx vite build
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v5
+      with:
+        aws-access-key-id: ${{ secrets.CICD_AWS_ACCESS }}
+        aws-secret-access-key: ${{ secrets.CICD_AWS_SECRET_ACCESS }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    # 1) 해시가 붙은 정적 파일: 1년 캐시. 이전 버전 파일은 지우지 않아
+    #    배포 중 예전 index.html을 받은 사용자도 화면이 깨지지 않게 한다.
+    - name: Upload assets
+      run: |
+        aws s3 sync dist/assets "s3://$S3_BUCKET/assets" \
+          --cache-control "public, max-age=31536000, immutable"
+
+    # 2) index.html 등 나머지 파일: 항상 재검증. 빌드에 없는 파일은 삭제 (assets/ 제외)
+    - name: Upload index and other files
+      run: |
+        aws s3 sync dist "s3://$S3_BUCKET" \
+          --exclude "assets/*" \
+          --cache-control "no-cache" \
+          --delete
+
+    - name: Invalidate CloudFront cache
+      if: env.CLOUDFRONT_DISTRIBUTION_ID != ''
+      run: |
+        aws cloudfront create-invalidation \
+          --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+          --paths "/*"
