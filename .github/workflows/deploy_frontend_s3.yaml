@@ -8,6 +8,7 @@
 #     S3_BUCKET                    (필수) 배포할 버킷 이름. 예: dutch-auction-web
 #     AWS_REGION                   (선택) 기본 ap-northeast-2
 #     CLOUDFRONT_DISTRIBUTION_ID   (선택) 값이 있으면 배포 후 캐시를 무효화한다
+# CI 테스트!
 name: Deploy frontend to S3
 
 on:
