@@ -12,6 +12,7 @@
 #   Variables
 #     AWS_REGION      : ECR 리전 (예: ap-northeast-2)
 #     ECR_REPOSITORY  : ECR 저장소 이름 (예: dutch-auction-api)
+# CI 테스트!
 name: backend-ci
 
 on:
