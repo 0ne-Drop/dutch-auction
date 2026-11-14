@@ -13,7 +13,7 @@ name: Deploy frontend to S3
 on:
   push:
     branches:
-    - master
+    - prod
     paths:
     - 'frontend/**'
     - 'shared/**'                  # 화면 가격 계산 테스트 기준값
