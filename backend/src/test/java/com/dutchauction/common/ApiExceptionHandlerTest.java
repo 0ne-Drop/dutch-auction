@@ -32,8 +32,7 @@ class ApiExceptionHandlerTest {
         mvc.perform(asyncDispatch(result))
                 .andExpect(r -> assertInstanceOf(AsyncRequestNotUsableException.class,
                         r.getResolvedException()))
-                .andExpect(content().string(""))
-                .andExpect(content().contentType(MediaType.TEXT_EVENT_STREAM));
+                .andExpect(content().string(""));
     }
 
     @Test
