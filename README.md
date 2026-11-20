@@ -36,7 +36,9 @@ npm install
 npm run dev                               # http://localhost:5173
 ```
 
-DB 접속 정보는 환경 변수로 바꿉니다: `DATABASE_URL`(기본 `jdbc:postgresql://localhost:5432/dutch_auction`), `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `REDIS_URL`. Homebrew PostgreSQL은 사용자명이 맥 계정명이라 위처럼 지정합니다.
+DB 접속 정보는 환경 변수로 바꿉니다: `DATABASE_URL`(기본 `jdbc:postgresql://localhost:5432/dutch_auction`), `DATABASE_USERNAME`, `DATABASE_PASSWORD`. Homebrew PostgreSQL은 사용자명이 맥 계정명이라 위처럼 지정합니다.
+
+Redis 는 `REDIS_HOST`(기본 `localhost`), `REDIS_PORT`(기본 `6379`) 로 단일 서버에 접속합니다. EKS 에서는 `SPRING_DATA_REDIS_SENTINEL_MASTER`, `SPRING_DATA_REDIS_SENTINEL_NODES`, `SPRING_DATA_REDIS_PASSWORD` 가 주어져 Sentinel 모드로 동작합니다.
 
 ## 테스트
 
