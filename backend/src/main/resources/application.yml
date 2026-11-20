@@ -16,7 +16,18 @@ spring:
       maximum-pool-size: ${DB_POOL_SIZE:20}
   data:
     redis:
-      url: ${REDIS_URL:redis://localhost:6379}
+      # [로컬·docker-compose] 단일 Redis: REDIS_HOST, REDIS_PORT
+      # [EKS] Redis Sentinel: 아래 환경 변수가 있으면 Sentinel 모드로 동작 (Helm 차트의 api-config, redis-secret 이 주입)
+      #   SPRING_DATA_REDIS_SENTINEL_MASTER  감시 이름 (mymaster)
+      #   SPRING_DATA_REDIS_SENTINEL_NODES   sentinel 주소 목록 (host:26379,host:26379,...)
+      #   SPRING_DATA_REDIS_PASSWORD         Redis 비밀번호
+      #   Sentinel 모드에서는 host/port 를 쓰지 않고 Sentinel 에게 현재 master 를 물어 접속한다.
+      #   장애 조치로 master 가 바뀌면 다시 물어서 새 master 로 재연결한다.
+      # url(REDIS_URL)은 쓰지 않는다: url 이 있으면 비밀번호를 url 에서만 읽어 SPRING_DATA_REDIS_PASSWORD 가 무시된다.
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: ${REDIS_TIMEOUT:2s}                  # 명령 응답 대기. 장애 조치 중 요청이 오래 매달리지 않게
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
   flyway:
     enabled: true
   lifecycle:
@@ -36,7 +47,9 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,db,redis   # DB·Redis가 준비된 Pod만 트래픽을 받음
+          # Redis 는 넣지 않는다: Sentinel 장애 조치(약 10초) 동안 모든 Pod 가 동시에 '준비 안 됨'이 되어
+          # ALB 가 타깃을 전부 빼면 서비스 전체가 멈춘다. Redis 상태는 /actuator/health 에서 계속 확인할 수 있다.
+          include: readinessState,db
 
 app:
   cookie-secure: ${COOKIE_SECURE:false}
