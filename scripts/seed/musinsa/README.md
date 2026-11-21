@@ -19,13 +19,24 @@ IMAGE_BASE=https://<이미지 버킷 도메인>/images ./scripts/seed/musinsa/ru
 IMAGE_BASE=... STARTS_AT='2026-11-20 20:00:00+09' ./scripts/seed/musinsa/run_seed.sh
 ```
 
-**로컬 (docker compose 의 db)**
+**psql 로 직접 (CloudShell VPC 환경, 또는 Bastion SSH 터널)**
+
+RDS 는 SSL 접속만 받으므로 `sslmode=require` 를 붙입니다. 비밀번호는 `Password for user ...:` 프롬프트에서만 입력하세요.
 ```bash
-psql -h localhost -U postgres -d dutch_auction \
-  -v image_base=https://<이미지 버킷 도메인>/images \
+# CloudShell (VPC 환경): RDS 엔드포인트로 바로 접속
+psql "host=<RDS 엔드포인트> port=5432 dbname=OnedropDB user=<사용자> sslmode=require" \
+  -v image_base=https://<이미지 도메인>/images \
+  -v starts_at='2026-11-20 20:00:00+09' \
+  -f scripts/seed/musinsa/seed_musinsa_100.sql
+
+# Bastion 터널 (ssh -N -L 15432:<RDS 엔드포인트>:5432 ...) 을 연 노트북
+psql "host=localhost port=15432 dbname=OnedropDB user=<사용자> sslmode=require" \
+  -v image_base=https://<이미지 도메인>/images \
   -f scripts/seed/musinsa/seed_musinsa_100.sql
 ```
-로컬에서 `SEED_ENABLED=true` 로 앱을 띄우면 DemoSeeder 가 모든 데이터를 지우므로, 이 스크립트는 앱이 뜬 뒤에 실행하세요.
+`starts_at` 을 빼면 실행 시점 + 10분에 시작합니다.
+
+이 SQL 은 기존 데이터를 지우지 않습니다. 앱이 떠 있는 동안 실행해도 됩니다.
 
 ## 동작
 

@@ -1,6 +1,9 @@
 // 동시 입찰 테스트: N명이 같은 물품에 동시에 입찰해 정확히 1명만 낙찰되는지 확인.
 // 백엔드가 떠 있고 오늘의 경매가 있어야 한다(시작 전이면 시작까지 기다림). Node 18 이상.
 //   node scripts/race-test.mjs 50
+//
+// 주의: 실제로 회원 N명을 가입시키고 물품 1개를 낙찰 처리한다(되돌리지 않음).
+//       운영 RDS(OnedropDB)에 붙은 API 에서는 실행하지 말 것. 개발용 DB 에 붙은 API 에서만 실행한다.
 const BASE = process.env.API_BASE ?? 'http://localhost:8080/api'
 const N = Number(process.argv[2] ?? 50)
 
@@ -12,9 +15,9 @@ async function login(loginId, password) {
 }
 
 const today = await (await fetch(`${BASE}/auctions/today`)).json()
-if (!today.auction) throw new Error('오늘의 경매가 없습니다. 데모 데이터(SEED_ENABLED=true)로 다시 시작하세요.')
+if (!today.auction) throw new Error('오늘의 경매가 없습니다. scripts/seed/musinsa 로 오늘 날짜 회차를 넣으세요.')
 const target = today.items.find((i) => i.status === 'listed')
-if (!target) throw new Error('입찰 가능한 물품이 없습니다. 데모 데이터로 다시 시작하세요.')
+if (!target) throw new Error('입찰 가능한 물품이 없습니다(오늘 회차의 물품이 모두 낙찰 또는 유찰).')
 
 const stamp = Date.now().toString(36)
 const cookies = await Promise.all(Array.from({ length: N }, (_, i) => login(`race${stamp}${i}`.slice(0, 20), 'password123')))
