@@ -6,9 +6,29 @@
 | --- | --- | --- |
 | 프레젠테이션 | `frontend/` 정적 빌드 → nginx | S3 + CloudFront |
 | 애플리케이션 | `backend/` Spring Boot 4.1 (Java 21) | ALB + EKS |
-| 데이터 | PostgreSQL 16, Redis 7 | RDS PostgreSQL, ElastiCache Redis |
+| 데이터 | RDS PostgreSQL (Bastion SSH 터널), Redis 7 | RDS PostgreSQL 18, EKS Redis (Sentinel) |
+
+## 데이터베이스
+
+DB 는 로컬에 두지 않고 **RDS PostgreSQL** 하나를 씁니다. 스키마는 앱이 기동할 때 Flyway(`V1__init.sql`)가 만들고, 데이터는 시드 SQL 로 넣습니다.
+
+- 접속 정보는 환경 변수로만 받습니다: `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`. **기본값이 없어서** 값이 없으면 앱이 기동하지 않습니다.
+- RDS 는 SSL 접속만 받으므로 URL 에 `sslmode=require` 를 붙입니다. 예) `jdbc:postgresql://<RDS 엔드포인트>:5432/OnedropDB?sslmode=require`
+- EKS 에서는 `api-secret`(Secret)이 세 값을 주입합니다 (`dutch-auction-cicd`).
+- 커넥션 풀은 `DB_POOL_SIZE`(기본 5)입니다. RDS(db.t4g.micro)의 `max_connections` 가 79 이므로 Pod 수 × 풀 크기가 이를 넘지 않게 합니다.
+- 경매 회차·물품 데이터는 [`scripts/seed/musinsa/`](scripts/seed/musinsa/README.md) 의 SQL 로 넣습니다. 회차는 하루 1개이고, 그날(서울 기준) 회차만 홈에 보입니다.
+- RDS 는 프라이빗 서브넷에 있어 노트북에서 바로 접속할 수 없습니다. 지금은 CloudShell(VPC 환경)에서 `psql` 로 접속하고, Bastion 을 만든 뒤에는 SSH 터널로 접속합니다.
 
 ## 바로 실행
+
+먼저 Bastion SSH 터널을 열고 `.env` 를 만듭니다.
+
+```bash
+ssh -N -L 15432:<RDS 엔드포인트>:5432 ec2-user@<Bastion 공인 IP>   # 터미널을 열어 둔 채로
+cp .env.example .env                                               # DATABASE_USERNAME, DATABASE_PASSWORD 채우기
+```
+
+> 로컬 앱도 실제 RDS 에 접속합니다. 개발 브랜치의 새 Flyway 마이그레이션, 유찰 처리(2초 주기), `race-test` 가 그 DB 의 데이터를 바꿉니다.
 
 ### 방법 1. Docker Compose
 
@@ -17,26 +37,24 @@ docker compose up --build
 ```
 
 - 웹: http://localhost:3000 · API: http://localhost:8080/api · 헬스체크: http://localhost:8080/actuator/health
-- 데모 계정 `demo` / `demo1234`
-- api 컨테이너가 시작할 때마다 데이터를 초기화하고 **60초 뒤 시작하는 오늘의 경매**를 만듭니다.
+- 컨테이너는 `host.docker.internal:15432` 로 호스트의 터널에 접속합니다(`docker-compose.yml`).
 
-### 방법 2. 직접 실행 (Java 21, Node 22, PostgreSQL 16, Redis 7)
+### 방법 2. 직접 실행 (Java 21, Node 22, Redis 7)
 
 ```bash
-# DB·Redis
-createdb dutch_auction                    # 또는 docker compose up -d db redis
+# Redis
+docker compose up -d redis                # 또는 로컬에 설치한 Redis
 
 # 백엔드 (터미널 1) — 첫 실행 시 Gradle이 의존성을 내려받습니다
 cd backend
-DATABASE_USERNAME=$(whoami) DATABASE_PASSWORD= SEED_ENABLED=true SEED_START_IN=60 ./gradlew bootRun
+set -a; source ../.env; set +a
+./gradlew bootRun
 
 # 프론트엔드 (터미널 2) — /api 를 8080으로 프록시
 cd frontend
 npm install
 npm run dev                               # http://localhost:5173
 ```
-
-DB 접속 정보는 환경 변수로 바꿉니다: `DATABASE_URL`(기본 `jdbc:postgresql://localhost:5432/dutch_auction`), `DATABASE_USERNAME`, `DATABASE_PASSWORD`. Homebrew PostgreSQL은 사용자명이 맥 계정명이라 위처럼 지정합니다.
 
 Redis 는 `REDIS_HOST`(기본 `localhost`), `REDIS_PORT`(기본 `6379`) 로 단일 서버에 접속합니다. EKS 에서는 `SPRING_DATA_REDIS_SENTINEL_MASTER`, `SPRING_DATA_REDIS_SENTINEL_NODES`, `SPRING_DATA_REDIS_PASSWORD` 가 주어져 Sentinel 모드로 동작합니다.
 
@@ -47,6 +65,8 @@ cd backend && ./gradlew test               # 가격 계산 (shared/price-cases.c
 cd frontend && npm test                    # 같은 파일로 화면 가격 계산 검증 → 서버·화면 일치 보장
 node scripts/race-test.mjs 50              # 백엔드 실행 중: 동시 입찰 1명 낙찰, 공개 API 가격 비노출, 접속자 수
 ```
+
+`race-test` 는 회원을 실제로 가입시키고 물품을 낙찰 처리합니다. 운영 DB(`OnedropDB`)에 붙은 API 에서는 실행하지 마세요.
 
 ## 이번 버전의 변경 사항
 
@@ -66,12 +86,13 @@ backend/                                   Spring Boot 4.1, Java 21, Gradle
     auth/     AuthController SessionStore(Redis 세션) AuthInterceptor WebConfig UserRepository
     event/    EventPublisher SseHub(SSE + Redis pub/sub) EventController UnsoldSweeper(유찰, 단일 실행)
     presence/ PresenceService(접속자 수)
-    seed/     DemoSeeder(SEED_ENABLED=true일 때만)
   src/main/resources/db/migration/V1__init.sql   Flyway 스키마
 frontend/                                  Vite + React 19 + TypeScript + Tailwind, 정적 빌드(dist/)
   src/pages/  HomePage LoginPage SignupPage BidPage WinsPage
   nginx.conf                               CloudFront 동작(/api 분기, SPA 라우팅) 로컬 재현
 shared/price-cases.csv                     서버·화면 공용 가격 기준값
 scripts/race-test.mjs                      동시 입찰·가격 비노출·접속자 수 확인
+scripts/seed/musinsa/                      RDS 에 넣는 목 데이터 (MUSINSA STANDARD 상품 100개)
+.env.example                               로컬 실행용 RDS 접속 정보 예시
 docs/                                      API 명세, 테이블 명세, AWS 배포 안내
 ```

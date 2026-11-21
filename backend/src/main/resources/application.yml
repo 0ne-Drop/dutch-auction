@@ -9,10 +9,16 @@ spring:
     virtual:
       enabled: true           # Java 21 가상 스레드: 오픈 순간 동시 요청·SSE 연결 처리
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/dutch_auction}
-    username: ${DATABASE_USERNAME:postgres}
-    password: ${DATABASE_PASSWORD:postgres}
+    # RDS PostgreSQL. 기본값을 두지 않는다: 값이 없으면 기동에 실패해서 엉뚱한 DB 에 붙지 않는다.
+    #   [EKS]  api-secret(Secret)이 DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD 를 주입
+    #   [로컬] Bastion SSH 터널 + .env (.env.example 참고)
+    # RDS 는 SSL 접속만 받으므로 URL 에 sslmode=require 를 붙인다.
+    #   예) jdbc:postgresql://<RDS 엔드포인트>:5432/OnedropDB?sslmode=require
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
     hikari:
+      # RDS db.t4g.micro 의 max_connections 는 79. Pod(또는 로컬 앱) 수 × 이 값이 79 를 넘지 않게 한다.
       maximum-pool-size: ${DB_POOL_SIZE:5}
   data:
     redis:
@@ -63,6 +69,3 @@ management:
 app:
   cookie-secure: ${COOKIE_SECURE:false}
   session-ttl-days: 7
-  seed:
-    enabled: ${SEED_ENABLED:false}         # true면 시작할 때 데모 데이터 생성 (기존 데이터 삭제)
-    start-in-sec: ${SEED_START_IN:60}
