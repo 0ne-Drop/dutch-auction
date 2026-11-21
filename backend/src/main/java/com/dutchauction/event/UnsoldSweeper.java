@@ -1,6 +1,7 @@
 package com.dutchauction.event;
 
 import com.dutchauction.auction.AuctionRepository;
+import com.dutchauction.common.RedisErrorMetrics;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,11 +26,14 @@ public class UnsoldSweeper {
     private final AuctionRepository auctions;
     private final EventPublisher events;
     private final StringRedisTemplate redis;
+    private final RedisErrorMetrics redisErrors;
 
-    public UnsoldSweeper(AuctionRepository auctions, EventPublisher events, StringRedisTemplate redis) {
+    public UnsoldSweeper(AuctionRepository auctions, EventPublisher events, StringRedisTemplate redis,
+                         RedisErrorMetrics redisErrors) {
         this.auctions = auctions;
         this.events = events;
         this.redis = redis;
+        this.redisErrors = redisErrors;
     }
 
     @Scheduled(fixedDelay = 2_000)
@@ -44,6 +48,7 @@ public class UnsoldSweeper {
             }
             byAuction.forEach(events::ended);
         } catch (RuntimeException e) {
+            redisErrors.record(e);   // 2초마다 Redis 잠금을 잡으므로 Redis 장애가 가장 먼저 드러나는 곳 (S10)
             log.warn("unsold sweep failed: {}", e.getMessage());
         }
     }

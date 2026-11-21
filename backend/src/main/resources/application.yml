@@ -13,7 +13,7 @@ spring:
     username: ${DATABASE_USERNAME:postgres}
     password: ${DATABASE_PASSWORD:postgres}
     hikari:
-      maximum-pool-size: ${DB_POOL_SIZE:20}
+      maximum-pool-size: ${DB_POOL_SIZE:5}
   data:
     redis:
       # [로컬·docker-compose] 단일 Redis: REDIS_HOST, REDIS_PORT
@@ -40,7 +40,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        # prometheus: EKS 의 Prometheus 가 15초마다 수집 (Ingress 는 /api 만 열어서 외부에는 노출되지 않음)
+        include: health,info,metrics,prometheus
+  metrics:
+    distribution:
+      # S03 응답 시간 분포: histogram_quantile 로 p95/p99 계산
+      # 전체 히스토그램(버킷 약 70개)은 uri·status·Pod 수만큼 시계열이 늘어나서 구간만 지정
+      slo:
+        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s,2s,5s
+        # S09 Redis 명령 지연 (Lettuce 관측 메트릭 lettuce_seconds{db_operation, error})
+        lettuce: 1ms,2ms,5ms,10ms,50ms,100ms,500ms,2s
   endpoint:
     health:
       probes:
