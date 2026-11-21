@@ -12,6 +12,11 @@ import org.springframework.web.context.request.async.AsyncRequestNotUsableExcept
 @RestControllerAdvice
 public class ApiExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+    private final RedisErrorMetrics redisErrors;
+
+    public ApiExceptionHandler(RedisErrorMetrics redisErrors) {
+        this.redisErrors = redisErrors;
+    }
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<Map<String, String>> handleApi(ApiException e) {
@@ -26,6 +31,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleOther(Exception e) {
+        redisErrors.record(e);   // Redis 타임아웃·연결 오류면 메트릭에 셈 (S10)
         log.error("unhandled error", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "SERVER_ERROR", "message", "일시적인 오류가 발생했습니다."));
