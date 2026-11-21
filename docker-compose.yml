@@ -1,38 +1,28 @@
-# 로컬에서 3티어 구성을 한 번에 실행 (운영 대응 관계)
+# 로컬에서 웹·API·Redis 를 한 번에 실행 (운영 대응 관계)
 #   web   (nginx)        ↔ S3 + CloudFront
 #   api   (Spring Boot)  ↔ ALB + EKS
-#   db    (PostgreSQL)   ↔ RDS PostgreSQL
-#   redis (Redis)        ↔ EKS Redis (Sentinel 구성, k8s 저장소의 Helm 차트)
+#   redis (Redis)        ↔ EKS Redis (Sentinel 구성, dutch-auction-cicd 의 Helm 차트)
+#   DB 는 로컬에 두지 않고 RDS PostgreSQL 을 쓴다.
+#
+# 실행 전 준비
+#   1. Bastion SSH 터널: ssh -N -L 15432:<RDS 엔드포인트>:5432 ec2-user@<Bastion 공인 IP>
+#   2. .env.example 을 .env 로 복사하고 DATABASE_USERNAME, DATABASE_PASSWORD 를 채운다 (.env 는 커밋하지 않음)
 services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: dutch_auction
-    ports: ["5432:5432"]
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d dutch_auction"]
-      interval: 2s
-      retries: 30
-
   redis:
     image: redis:7
     ports: ["6379:6379"]
 
   api:
     build: ./backend
+    env_file: .env                # DATABASE_USERNAME, DATABASE_PASSWORD
     environment:
-      DATABASE_URL: jdbc:postgresql://db:5432/dutch_auction
-      DATABASE_USERNAME: postgres
-      DATABASE_PASSWORD: postgres
+      # 컨테이너 안에서는 호스트의 터널(localhost:15432)이 host.docker.internal:15432 로 보인다.
+      # 터널 포트나 DB 이름을 바꾸면 여기도 같이 바꾼다.
+      DATABASE_URL: jdbc:postgresql://host.docker.internal:15432/OnedropDB?sslmode=require
       REDIS_HOST: redis
-      # 데모: 시작할 때마다 데이터를 초기화하고 60초 뒤 시작하는 오늘의 경매를 만든다
-      SEED_ENABLED: "true"
-      SEED_START_IN: "60"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux Docker 에서도 같은 이름을 쓰기 위함
     depends_on:
-      db: { condition: service_healthy }
       redis: { condition: service_started }
     ports: ["8080:8080"]
 
@@ -40,6 +30,3 @@ services:
     build: ./frontend
     depends_on: [api]
     ports: ["3000:80"]
-
-volumes:
-  pgdata:
