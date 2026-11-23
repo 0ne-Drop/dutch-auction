@@ -1,4 +1,4 @@
-# 백엔드(Spring Boot) CI: 테스트 → 이미지 빌드 → ECR push
+# 백엔드(Spring Boot) CI: 테스트 → 이미지 빌드 → ECR push → 차트 저장소의 이미지 태그 변경
 #
 # 실행 조건: prod 브랜치에 push되고 backend/ 또는 shared/ 가 바뀌었을 때 (Actions 탭에서 수동 실행도 가능)
 #
