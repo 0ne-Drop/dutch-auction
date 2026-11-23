@@ -5,14 +5,17 @@
 # 이미지 태그: <가장 최근 git 태그>.<실행 번호>  (태그가 없으면 0.0.0.<실행 번호>)
 #   예) v1.2.0.37
 #
+# 이미지 태그 변경: 0ne-Drop/dutch-auction-cicd 의 charts/dutch-auction/values-prod.yaml image.tag 를 main 에 바로 커밋
+#   클러스터 반영은 차트 저장소에서 ./cluster/setup.sh 11 (helm upgrade)
+#
 # 저장소 Settings → Environments → production 에 등록할 값 (production은 prod 브랜치만 사용하도록 제한)
 #   Secrets
 #     CICD_AWS_ACCESS      : 배포 전용 IAM 사용자의 액세스 키 ID (루트 계정 키 사용 금지)
 #     CICD_AWS_SECRET_ACCESS  : 같은 키의 비밀 액세스 키
+#     CICD_REPO_DEPLOY_KEY    : dutch-auction-cicd 저장소 Deploy key(쓰기 허용)의 SSH 비밀 키
 #   Variables
 #     AWS_REGION      : ECR 리전 (예: ap-northeast-2)
 #     ECR_REPOSITORY  : ECR 저장소 이름 (예: dutch-auction-api)
-# CI 테스트!
 name: backend-ci
 
 on:
@@ -60,6 +63,8 @@ jobs:
     needs: test                             # 테스트가 성공해야 실행
     runs-on: ubuntu-latest
     environment: production                 # prod 브랜치에서만 Secrets 사용 가능
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}   # 3단계(update-manifest)에서 사용
     steps:
       - name: 코드 받기 (태그 포함)
         uses: actions/checkout@v4
@@ -105,5 +110,51 @@ jobs:
             echo "### 올린 이미지"
             echo "\`${IMAGE}\`"
             echo ""
-            echo "배포할 때: \`cd k8s && kustomize edit set image dutch-auction-api=${IMAGE}\`"
+            echo "다음 단계(update-manifest)가 dutch-auction-cicd 의 values-prod.yaml image.tag 를 바꿈"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── 3. 차트 저장소의 이미지 태그 변경 ──────────────────────
+  update-manifest:
+    needs: build-push                       # 이미지가 ECR 에 올라간 뒤에만 실행
+    runs-on: ubuntu-latest
+    environment: production                 # CICD_REPO_DEPLOY_KEY 를 쓰기 위해
+    concurrency:
+      group: update-manifest                # 두 실행이 동시에 같은 파일을 커밋하지 않도록
+      cancel-in-progress: false
+    env:
+      TAG: ${{ needs.build-push.outputs.image_tag }}
+      VALUES_FILE: charts/dutch-auction/values-prod.yaml
+    steps:
+      - name: 차트 저장소 받기 (Deploy key)
+        uses: actions/checkout@v4
+        with:
+          repository: 0ne-Drop/dutch-auction-cicd
+          ref: main
+          ssh-key: ${{ secrets.CICD_REPO_DEPLOY_KEY }}
+ 
+      - name: image.tag 변경
+        run: |
+          # yq 는 GitHub 기본 러너에 설치되어 있음 (mikefarah/yq v4, 주석 유지)
+          yq -i '.image.tag = strenv(TAG)' "$VALUES_FILE"
+          test "$(yq '.image.tag' "$VALUES_FILE")" = "$TAG"
+          git diff
+ 
+      - name: 커밋 & push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add "$VALUES_FILE"
+          if git diff --cached --quiet; then
+            echo "이미 ${TAG} 라서 변경 없음"; exit 0
+          fi
+          git commit -m "chore: api 이미지 태그 ${TAG} (dutch-auction@${GITHUB_SHA::7})"
+          # 그 사이 다른 커밋이 main 에 들어왔으면 받아서 다시 시도
+          for i in 1 2 3; do
+            git push origin HEAD:main && break
+            git pull --rebase origin main
+          done
+ 
+      - name: 결과 요약
+        run: |
+          echo "### 차트 태그 변경: \`${TAG}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "클러스터 반영: dutch-auction-cicd 에서 \`./cluster/setup.sh 11\`" >> "$GITHUB_STEP_SUMMARY"
