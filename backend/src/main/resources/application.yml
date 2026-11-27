@@ -69,3 +69,8 @@ management:
 app:
   cookie-secure: ${COOKIE_SECURE:false}
   session-ttl-days: 7
+  # 로그인 시 세션이 복제본 1개 이상에 복사될 때까지 기다리는 최대 시간 (WAIT 1 <ms>). 0 이면 확인하지 않음
+  session-replica-wait: ${SESSION_REPLICA_WAIT:100ms}
+  redis-retry:
+    # Sentinel 장애 조치(감지 5초 + 승격 수 초) 동안 세션 읽기·쓰기를 다시 시도하는 최대 시간
+    max-wait: ${REDIS_RETRY_MAX_WAIT:10s}
